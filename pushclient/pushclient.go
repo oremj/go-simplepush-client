@@ -1,18 +1,18 @@
 package pushclient
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"code.google.com/p/go-uuid/uuid"
+	"code.google.com/p/go.net/websocket"
+	"crypto/tls"
 	"fmt"
 	"log"
-	"crypto/tls"
 )
 
 type Client struct {
 	Ws         *websocket.Conn
 	Uaid       string
 	ChannelIDs []string
-	handler PushHandler
+	handler    PushHandler
 }
 
 func NewClient(server string, port int, secure bool, handler PushHandler) (c *Client, err error) {
@@ -54,18 +54,18 @@ func (c *Client) receiveLoop() {
 			return
 		}
 		switch resp["messageType"].(string) {
-			case "register":
-				c.handleRegister(resp)
-			case "notification":
-				c.handleNotification(resp)
+		case "register":
+			c.handleRegister(resp)
+		case "notification":
+			c.handleNotification(resp)
 		}
 	}
 }
 
 func (c *Client) handleRegister(resp Response) {
 	register := &RegisterResponse{
-		ChannelID: resp["channelID"].(string),
-		Status: int(resp["status"].(float64)),
+		ChannelID:    resp["channelID"].(string),
+		Status:       int(resp["status"].(float64)),
 		PushEndpoint: resp["pushEndpoint"].(string),
 	}
 	c.handler.RegisterHandler(register)
@@ -106,7 +106,7 @@ func (c *Client) handshake() (err error) {
 	return
 }
 
-func(c *Client) Register() (err error) {
+func (c *Client) Register() (err error) {
 	msg := RegisterMessage{MessageType: "register", ChannelID: uuid.New()}
 	err = c.Send(msg)
 	return
