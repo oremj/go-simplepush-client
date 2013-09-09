@@ -55,9 +55,9 @@ func (c *Client) receiveLoop() {
 		}
 		switch resp["messageType"].(string) {
 		case "register":
-			c.handleRegister(resp)
+			go c.handleRegister(resp)
 		case "notification":
-			c.handleNotification(resp)
+			go c.handleNotification(resp)
 		}
 	}
 }
@@ -73,7 +73,8 @@ func (c *Client) handleRegister(resp Response) {
 
 func (c *Client) handleNotification(resp Response) {
 	n := &Notification{}
-	for _, update := range resp["updates"].([]map[string]interface{}) {
+	for _, up := range resp["updates"].([]interface{}) {
+		update := up.(map[string]interface{})
 		u := &Update{ChannelID: update["channelID"].(string),
 			Version: int(update["version"].(float64))}
 		n.Updates = append(n.Updates, u)
