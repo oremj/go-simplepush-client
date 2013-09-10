@@ -43,11 +43,10 @@ func NewClient(server string, port int, secure bool, handler PushHandler) (c *Cl
 	if err != nil {
 		return
 	}
-	go c.receiveLoop()
 	return
 }
 
-func (c *Client) receiveLoop() {
+func (c *Client) Run() {
 	for {
 		resp, err := c.Receive()
 		if err != nil {
