@@ -7,9 +7,11 @@ import (
 	"github.com/oremj/go-simplepush-client/pushclient"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var server = flag.String("server", "localhost", "Pushgo Server Name")
+var numClients = flag.Int("clients", 1, "Number of concurrent clients")
 
 type endPoint struct {
 	reg *pushclient.RegisterResponse
@@ -30,11 +32,7 @@ func SendPing(endPoint string, version int) (err error) {
 	return
 }
 
-func RunClient(server string) {
-	c := &Client{
-		Notification: make(chan *pushclient.Notification),
-		Register: make(chan *pushclient.RegisterResponse),
-	}
+func RunClient(server string, c *Client) {
 	pc, err := pushclient.NewClient(server, 443, true, c)
 	if err != nil {
 		return
@@ -54,6 +52,7 @@ func RunClient(server string) {
 				if ok {
 					e.version++
 					SendPing(e.reg.PushEndpoint, e.version)
+					c.PingSent++
 				}
 				c.PingRecv++
 			}
@@ -63,5 +62,20 @@ func RunClient(server string) {
 
 func main() {
 	flag.Parse()
-	RunClient(*server)
+	clients := make([]*Client, 0, *numClients)
+	for i := 0; i < *numClients; i++ {
+		c := NewClient()
+		clients = append(clients, c)
+		go RunClient(*server, c)
+	}
+	for {
+		pingSent := 0
+		pingRecv := 0
+		for _, c := range clients {
+			pingSent += c.PingSent
+			pingRecv += c.PingRecv
+		}
+		fmt.Printf("%d, %d\n", pingSent, pingRecv)
+		time.Sleep(2 * time.Second)
+	}
 }

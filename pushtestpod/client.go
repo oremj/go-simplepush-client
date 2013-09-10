@@ -11,6 +11,14 @@ type Client struct {
 	Register chan *pushclient.RegisterResponse
 }
 
+func NewClient() *Client {
+	c := &Client{
+		Notification: make(chan *pushclient.Notification),
+		Register: make(chan *pushclient.RegisterResponse),
+	}
+	return c
+}
+
 func (c *Client) NotificationHandler(resp *pushclient.Notification) {
 	c.Notification <- resp
 }
