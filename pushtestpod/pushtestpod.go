@@ -11,6 +11,7 @@ import (
 )
 
 var server = flag.String("server", "localhost", "Pushgo Server Name")
+var secure = flag.Bool("secure", false, "Use wss/https")
 var numClients = flag.Int("clients", 1, "Number of concurrent clients")
 
 type endPoint struct {
@@ -32,8 +33,8 @@ func SendPing(endPoint string, version int) (err error) {
 	return
 }
 
-func RunClient(server string, c *Client) {
-	pc, err := pushclient.NewClient(server, 443, true, c)
+func RunClient(server string, port int, secure bool, c *Client) {
+	pc, err := pushclient.NewClient(server, port, secure, c)
 	if err != nil {
 		return
 	}
@@ -62,11 +63,15 @@ func RunClient(server string, c *Client) {
 
 func main() {
 	flag.Parse()
+	port := 80
+	if *secure {
+		port = 443
+	}
 	clients := make([]*Client, 0, *numClients)
 	for i := 0; i < *numClients; i++ {
 		c := NewClient()
 		clients = append(clients, c)
-		go RunClient(*server, c)
+		go RunClient(*server, port, *secure, c)
 	}
 	for {
 		pingSent := 0
