@@ -30,7 +30,9 @@ func SendPing(endPoint string, version int) (err error) {
 		return
 	}
 	res, err := client.Do(req)
-	res.Body.Close()
+	if err == nil {
+		res.Body.Close()
+	}
 	return
 }
 
