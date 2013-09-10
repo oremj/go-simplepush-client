@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"os"
 )
 
 type Client struct {
@@ -13,6 +14,13 @@ type Client struct {
 	Uaid       string
 	ChannelIDs []string
 	handler    PushHandler
+}
+
+func debug(args ...interface{}) {
+	d := os.Getenv("DEBUG")
+	if d == "1" {
+		log.Println(args...)
+	}
 }
 
 func NewClient(server string, port int, secure bool, handler PushHandler) (c *Client, err error) {
@@ -83,14 +91,14 @@ func (c *Client) handleNotification(resp Response) {
 }
 
 func (c *Client) Send(msg interface{}) (err error) {
-	log.Println("client.send:", msg)
+	debug("client.send:", msg)
 	err = websocket.JSON.Send(c.Ws, msg)
 	return
 }
 
 func (c *Client) Receive() (resp Response, err error) {
 	err = websocket.JSON.Receive(c.Ws, &resp)
-	log.Println("client.recv:", resp)
+	debug("client.recv:", resp)
 	return
 }
 
