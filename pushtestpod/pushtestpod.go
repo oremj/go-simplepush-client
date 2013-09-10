@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/oremj/go-simplepush-client/pushclient"
+	"log"
 	"net/http"
 	"strings"
-	"time"
 )
 
 var server = flag.String("server", "localhost", "Pushgo Server Name")
@@ -15,7 +15,7 @@ var secure = flag.Bool("secure", false, "Use wss/https")
 var numClients = flag.Int("clients", 1, "Number of concurrent clients")
 
 type endPoint struct {
-	reg *pushclient.RegisterResponse
+	reg     *pushclient.RegisterResponse
 	version int
 }
 
@@ -29,7 +29,8 @@ func SendPing(endPoint string, version int) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = client.Do(req)
+	res, err := client.Do(req)
+	res.Body.Close()
 	return
 }
 
@@ -45,23 +46,41 @@ func RunClient(server string, port int, secure bool, c *Client) {
 		select {
 		case reg := <-c.Register:
 			endPoints[reg.ChannelID] = &endPoint{reg, 1}
-			SendPing(reg.PushEndpoint, 1)
-			c.PingSent++
+			err := SendPing(reg.PushEndpoint, 1)
+			if err != nil {
+				statChan <- &stat{"put_fail", 1}
+			} else {
+				statChan <- &stat{"ping_sent", 1}
+			}
 		case notif := <-c.Notification:
 			for _, update := range notif.Updates {
 				e, ok := endPoints[update.ChannelID]
 				if ok {
 					e.version++
-					SendPing(e.reg.PushEndpoint, e.version)
-					c.PingSent++
+					err := SendPing(e.reg.PushEndpoint, e.version)
+					if err != nil {
+						log.Println(err)
+						statChan <- &stat{"put_fail", 1}
+					} else {
+						statChan <- &stat{"ping_sent", 1}
+					}
 				}
-				c.PingRecv++
+				statChan <- &stat{"ping_recv", 1}
 			}
 		}
 	}
 }
 
+type stat struct {
+	key string
+	val int
+}
+
+var statChan chan *stat
+
 func main() {
+	statChan = make(chan *stat, 100000)
+	metrics := make(map[string]int)
 	flag.Parse()
 	port := 80
 	if *secure {
@@ -74,13 +93,8 @@ func main() {
 		go RunClient(*server, port, *secure, c)
 	}
 	for {
-		pingSent := 0
-		pingRecv := 0
-		for _, c := range clients {
-			pingSent += c.PingSent
-			pingRecv += c.PingRecv
-		}
-		fmt.Printf("%d, %d\n", pingSent, pingRecv)
-		time.Sleep(2 * time.Second)
+		s := <-statChan
+		metrics[s.key] += s.val
+		fmt.Println(metrics)
 	}
 }

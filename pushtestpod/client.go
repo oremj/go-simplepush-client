@@ -5,16 +5,16 @@ import (
 )
 
 type Client struct {
-	PingSent int
-	PingRecv int
+	PingSent     int
+	PingRecv     int
 	Notification chan *pushclient.Notification
-	Register chan *pushclient.RegisterResponse
+	Register     chan *pushclient.RegisterResponse
 }
 
 func NewClient() *Client {
 	c := &Client{
 		Notification: make(chan *pushclient.Notification),
-		Register: make(chan *pushclient.RegisterResponse),
+		Register:     make(chan *pushclient.RegisterResponse),
 	}
 	return c
 }
