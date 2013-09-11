@@ -47,18 +47,24 @@ func main() {
 		}(c)
 	}
 
-	connected := 0
-	for s := range counterChan {
-		metrics[s.key] += s.val
-		fmt.Println(metrics)
-		switch s.key {
-		case "conn_ok":
-			connected++
-			if connected == *numClients {
-				for _, c := range clients {
-					c.pc.Register()
+	go func() {
+		connected := 0
+		for s := range counterChan {
+			metrics[s.key] += s.val
+			switch s.key {
+			case "conn_ok":
+				connected++
+				if connected == *numClients {
+					for _, c := range clients {
+						c.pc.Register()
+					}
 				}
 			}
 		}
+	}()
+
+	for {
+		fmt.Println(metrics)
+		time.Sleep(2 * time.Second)
 	}
 }

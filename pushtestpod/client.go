@@ -75,7 +75,7 @@ func (c *Client) Run() (err error) {
 					}
 					e.version++
 					go func() {
-						delay := c.config.delay * 1000
+						delay := c.config.delay
 						range_ := delay / 2
 						delay = rand.Intn(range_*2) + (delay - range_)
 						time.Sleep(time.Duration(delay) * time.Millisecond)
