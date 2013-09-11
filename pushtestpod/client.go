@@ -5,8 +5,6 @@ import (
 )
 
 type Client struct {
-	PingSent     int
-	PingRecv     int
 	Notification chan *pushclient.Notification
 	Register     chan *pushclient.RegisterResponse
 }

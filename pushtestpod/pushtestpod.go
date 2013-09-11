@@ -21,21 +21,25 @@ type endPoint struct {
 	timeout <-chan time.Time
 }
 
+func NewEndpoint(reg *pushclient.RegisterResponse) *endPoint {
+	return &endPoint{reg: reg, version: 1, done: make(chan bool)}
+}
+
 func (e *endPoint) sendPing() (err error) {
 	e.timeout = time.After(5 * time.Second)
-	go func(e *endPoint) {
-		select {
-		case <-e.timeout:
-			statChan <- &stat{"ping_timeout", 1}
-		case <-e.done:
-			statChan <- &stat{"ping_recv", 1}
-		}
-	}(e)
 	err = SendPing(e.reg.PushEndpoint, e.version)
 	if err != nil {
-		statChan <- &stat{"put_fail", 1}
+		counterChan <- &stat{"put_fail", 1}
 	} else {
-		statChan <- &stat{"ping_sent", 1}
+		counterChan <- &stat{"put_ok", 1}
+		go func(e *endPoint) {
+			select {
+			case <-e.timeout:
+				counterChan <- &stat{"update_timeout", 1}
+			case <-e.done:
+				counterChan <- &stat{"update_ok", 1}
+			}
+		}(e)
 	}
 	return
 }
@@ -57,22 +61,37 @@ func SendPing(endPoint string, version int) (err error) {
 	return
 }
 
-func RunClient(server string, port int, secure bool, c *Client) {
+func RunClient(server string, port int, secure bool, c *Client, wait bool) {
 	pc, err := pushclient.NewClient(server, port, secure, c)
 	if err != nil {
-		statChan <- &stat{"conn_fail", 1}
+		counterChan <- &stat{"conn_fail", 1}
+		time.Sleep(5 * time.Second)
+		go RunClient(server, port, secure, c, false)
 		return
 	}
-	statChan <- &stat{"conn_ok", 1}
-	go pc.Run()
-	<-waitConnect
+	counterChan <- &stat{"conn_ok", 1}
+	disconnected := make(chan bool)
+	go func(c *pushclient.Client) {
+		err := c.Run()
+		if err != nil {
+			disconnected <- true
+		}
+	}(pc)
+	if wait {
+		<-waitConnect
+	}
 	pc.Register()
 
 	endPoints := make(map[string]*endPoint)
 	for {
 		select {
+		case <-disconnected:
+			counterChan <- &stat{"conn_lost", 1}
+			time.Sleep(5 * time.Second)
+			go RunClient(server, port, secure, c, false)
+			return
 		case reg := <-c.Register:
-			e := &endPoint{reg, 1, make(chan bool), time.After(3 * time.Millisecond)}
+			e := NewEndpoint(reg)
 			endPoints[reg.ChannelID] = e
 			e.sendPing()
 		case notif := <-c.Notification:
@@ -97,12 +116,12 @@ type stat struct {
 	val int
 }
 
-var statChan chan *stat
+var counterChan chan *stat
 var waitConnect chan bool
 
 func main() {
 	flag.Parse()
-	statChan = make(chan *stat, 100000)
+	counterChan = make(chan *stat, 100000)
 	waitConnect = make(chan bool, *numClients)
 	metrics := make(map[string]int)
 
@@ -114,12 +133,12 @@ func main() {
 	for i := 0; i < *numClients; i++ {
 		c := NewClient()
 		clients = append(clients, c)
-		go RunClient(*server, port, *secure, c)
+		go RunClient(*server, port, *secure, c, true)
 		time.Sleep(100 * time.Millisecond)
 	}
 	connected := false
 	for {
-		s := <-statChan
+		s := <-counterChan
 		metrics[s.key] += s.val
 		if !connected && metrics["conn_ok"] + metrics["conn_fail"] >= *numClients {
 			for i := 0; i < *numClients; i++ {

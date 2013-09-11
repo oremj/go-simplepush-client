@@ -54,11 +54,12 @@ func NewClient(server string, port int, secure bool, handler PushHandler) (c *Cl
 	return
 }
 
-func (c *Client) Run() {
+func (c *Client) Run() error {
 	for {
 		resp, err := c.Receive()
 		if err != nil {
-			return
+			debug(err)
+			return err
 		}
 		switch resp["messageType"].(string) {
 		case "register":
