@@ -2,7 +2,13 @@ package main
 
 import (
 	"github.com/oremj/go-simplepush-client/pushclient"
+	"math/rand"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 type Client struct {
 	server       string
@@ -51,7 +57,7 @@ func (c *Client) Run() (err error) {
 			incStat("conn_lost")
 			return
 		case reg := <-c.Register:
-			e := NewEndpoint(reg, c.config.delay)
+			e := NewEndpoint(reg)
 			endPoints[reg.ChannelID] = e
 			go func() {
 				e.sendPing()
@@ -69,7 +75,11 @@ func (c *Client) Run() (err error) {
 					}
 					e.version++
 					go func() {
-						go e.sendPing()
+						delay := c.config.delay * 1000
+						range_ := delay / 2
+						delay = rand.Intn(range_*2) + (delay - range_)
+						time.Sleep(time.Duration(delay) * time.Millisecond)
+						e.sendPing()
 					}()
 				}
 			}

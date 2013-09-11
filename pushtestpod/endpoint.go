@@ -6,32 +6,22 @@ import (
 )
 
 type endPoint struct {
-	reg       *pushclient.RegisterResponse
-	version   int
-	done      chan bool
-	delay     time.Duration
-	delayChan <-chan time.Time
+	reg     *pushclient.RegisterResponse
+	version int
+	done    chan bool
 }
 
-func NewEndpoint(reg *pushclient.RegisterResponse, delay int) *endPoint {
+func NewEndpoint(reg *pushclient.RegisterResponse) *endPoint {
 	e := &endPoint{
 		reg:     reg,
 		version: 1,
 		done:    make(chan bool),
-		delay:   time.Duration(delay) * time.Second,
 	}
 
-	e.setTimer()
 	return e
 }
 
-func (e *endPoint) setTimer() {
-	e.delayChan = time.After(e.delay)
-}
-
 func (e *endPoint) sendPing() (err error) {
-	<-e.delayChan
-	defer e.setTimer()
 	err = SendPing(e.reg.PushEndpoint, e.version)
 	if err != nil {
 		counterChan <- &stat{"put_fail", 1}
