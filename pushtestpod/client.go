@@ -66,12 +66,10 @@ func (c *Client) Run() (err error) {
 			for _, update := range notif.Updates {
 				e, ok := endPoints[update.ChannelID]
 				if ok {
-					select {
-					case e.done <- true:
-						incStat("update_ok")
-					case <-e.done:
-						incStat("update_timeout")
+					_, ok := <-e.success
+					if !ok {
 						c.pc.Register()
+						continue
 					}
 					e.version++
 					go func() {

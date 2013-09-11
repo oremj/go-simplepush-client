@@ -8,14 +8,14 @@ import (
 type endPoint struct {
 	reg     *pushclient.RegisterResponse
 	version int
-	done    chan bool
+	success chan bool
 }
 
 func NewEndpoint(reg *pushclient.RegisterResponse) *endPoint {
 	e := &endPoint{
 		reg:     reg,
 		version: 1,
-		done:    make(chan bool),
+		success: make(chan bool),
 	}
 
 	return e
@@ -24,15 +24,16 @@ func NewEndpoint(reg *pushclient.RegisterResponse) *endPoint {
 func (e *endPoint) sendPing() (err error) {
 	err = SendPing(e.reg.PushEndpoint, e.version)
 	if err != nil {
-		counterChan <- &stat{"put_fail", 1}
-	} else {
-		counterChan <- &stat{"put_ok", 1}
-		timeout := time.After(15 * time.Second)
-		select {
-		case <-timeout:
-			e.done <- true
-		case <-e.done:
-		}
+		incStat("put_fail")
+		return
+	}
+	incStat("put_ok")
+	select {
+	case <-time.After(10 * time.Second):
+		incStat("update_timeout")
+		close(e.success)
+	case e.success <- true:
+		incStat("update_ok")
 	}
 	return
 }

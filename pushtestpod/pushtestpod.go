@@ -9,7 +9,7 @@ import (
 var server = flag.String("server", "localhost", "Pushgo Server Name")
 var secure = flag.Bool("secure", false, "Use wss/https")
 var numClients = flag.Int("clients", 1, "Number of concurrent clients")
-var delay = flag.Int("delay", 30, "Delay between PUTs.")
+var delay = flag.Int("delay", 10000, "Delay between PUTs in milliseconds.")
 
 func incStat(name string) {
 	counterChan <- &stat{name, 1}
@@ -65,6 +65,6 @@ func main() {
 
 	for {
 		fmt.Println(metrics)
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
