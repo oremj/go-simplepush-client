@@ -111,7 +111,11 @@ func (c *Client) handshake() (err error) {
 	}
 
 	resp, err := c.Receive()
-	c.Uaid = resp["uaid"].(string)
+	v, ok := resp["uaid"].(string)
+	if !ok {
+		return fmt.Errorf("uaid in handshake not string")
+	}
+	c.Uaid = v
 	return
 }
 
