@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 	counterChan = make(chan *stat, 100000)
 	waitConnect = make(chan bool, *numClients)
-	metrics := make(map[string]int)
+	metrics := make(Metrics)
 
 	port := 80
 	if *secure {
@@ -56,15 +56,24 @@ func main() {
 				connected++
 				if connected == *numClients {
 					for _, c := range clients {
-						c.pc.Register()
+						c.SendReg()
 					}
 				}
 			}
 		}
 	}()
 
+	var tmp Metrics
 	for {
-		fmt.Println(metrics)
+		for k, v := range metrics {
+			fmt.Printf("%s: %d ", k, v)
+			tmpV, ok := tmp[k]
+			if ok {
+				fmt.Printf("(%d) ", v - tmpV)
+			}
+		}
+		fmt.Println()
+		tmp = metrics.Copy()
 		time.Sleep(1 * time.Second)
 	}
 }

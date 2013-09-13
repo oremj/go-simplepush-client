@@ -57,32 +57,30 @@ func (c *Client) Run() (err error) {
 			incStat("conn_lost")
 			return
 		case reg := <-c.Register:
+			incStat("reg_ok")
 			e := NewEndpoint(reg)
 			endPoints[reg.ChannelID] = e
 			go func() {
-				e.sendPing()
+				e.run(c.config.delay)
+				c.SendReg()
 			}()
 		case notif := <-c.Notification:
 			for _, update := range notif.Updates {
 				e, ok := endPoints[update.ChannelID]
 				if ok {
-					_, ok := <-e.success
-					if !ok {
-						c.pc.Register()
-						continue
+					select {
+					case e.notify <- true:
+					default:
 					}
-					e.version++
-					go func() {
-						delay := c.config.delay
-						range_ := delay / 2
-						delay = rand.Intn(range_*2) + (delay - range_)
-						time.Sleep(time.Duration(delay) * time.Millisecond)
-						e.sendPing()
-					}()
 				}
 			}
 		}
 	}
+}
+
+func (c *Client) SendReg() {
+	incStat("reg_try")
+	c.pc.Register()
 }
 
 func (c *Client) NotificationHandler(resp *pushclient.Notification) {
