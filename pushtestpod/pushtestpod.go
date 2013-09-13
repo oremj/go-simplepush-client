@@ -27,39 +27,43 @@ func main() {
 	flag.Parse()
 	counterChan = make(chan *stat, 100000)
 	waitConnect = make(chan bool, *numClients)
+
 	metrics := make(Metrics)
+	go func() {
+		for s := range counterChan {
+			metrics[s.key] += s.val
+		}
+	}()
 
 	port := 80
 	if *secure {
 		port = 443
 	}
-	clients := make([]*Client, 0, *numClients)
-	for i := 0; i < *numClients; i++ {
-		c := NewClient(*server, port, &Config{secure: *secure, delay: *delay})
-		clients = append(clients, c)
-		go func(c *Client) {
-			for {
-				err := c.Run()
-				if err != nil {
-					time.Sleep(2 * time.Second)
-				}
-			}
-		}(c)
-	}
 
 	go func() {
-		connected := 0
-		for s := range counterChan {
-			metrics[s.key] += s.val
-			switch s.key {
-			case "conn_ok":
-				connected++
-				if connected == *numClients {
-					for _, c := range clients {
-						c.SendReg()
+		clients := make([]*Client, 0, *numClients)
+		connectionLimiter := make(chan bool, 300)
+		for i := 0; i < *numClients; i++ {
+			connectionLimiter <- true
+			c := NewClient(*server, port, &Config{secure: *secure, delay: *delay})
+			clients = append(clients, c)
+			go func(c *Client) {
+				for {
+					err := c.Connect()
+					if err != nil {
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					c.SendReg()
+
+					<-connectionLimiter
+
+					err = c.Run()
+					if err != nil {
+						time.Sleep(2 * time.Second)
 					}
 				}
-			}
+			}(c)
 		}
 	}()
 

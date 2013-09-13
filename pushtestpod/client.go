@@ -35,14 +35,18 @@ func NewClient(server string, port int, config *Config) *Client {
 	return c
 }
 
-func (c *Client) Run() (err error) {
-	disconnected := make(chan error)
+func (c *Client) Connect() (err error) {
 	c.pc, err = pushclient.NewClient(c.server, c.port, c.config.secure, c)
 	if err != nil {
 		incStat("conn_fail")
 		return
 	}
 	incStat("conn_ok")
+	return
+}
+
+func (c *Client) Run() (err error) {
+	disconnected := make(chan error)
 	go func() {
 		err := c.pc.Run()
 		if err != nil {

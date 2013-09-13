@@ -29,7 +29,7 @@ func (e *endPoint) run(delay int) (err error) {
 			return
 		}
 		select {
-		case <-time.After(10 * time.Second):
+		case <-time.After(120 * time.Second):
 			incStat("update_timeout")
 			close(e.notify)
 			return
