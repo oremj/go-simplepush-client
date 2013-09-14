@@ -73,7 +73,7 @@ func main() {
 			fmt.Printf("%s: %d ", k, v)
 			tmpV, ok := tmp[k]
 			if ok {
-				fmt.Printf("(%d) ", v - tmpV)
+				fmt.Printf("(%d) ", v-tmpV)
 			}
 		}
 		fmt.Println()
