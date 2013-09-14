@@ -14,9 +14,9 @@ type Client struct {
 	server       string
 	port         int
 	Notification chan *pushclient.Notification
-	Register     chan *pushclient.RegisterResponse
+	RegisterChan chan *pushclient.RegisterResponse
 	config       *Config
-	pc           *pushclient.Client
+	*pushclient.Client
 }
 
 type Config struct {
@@ -30,13 +30,13 @@ func NewClient(server string, port int, config *Config) *Client {
 		port:         port,
 		config:       config,
 		Notification: make(chan *pushclient.Notification),
-		Register:     make(chan *pushclient.RegisterResponse),
+		RegisterChan: make(chan *pushclient.RegisterResponse),
 	}
 	return c
 }
 
 func (c *Client) Connect() (err error) {
-	c.pc, err = pushclient.NewClient(c.server, c.port, c.config.secure, c)
+	c.Client, err = pushclient.NewClient(c.server, c.port, c.config.secure, c)
 	if err != nil {
 		incStat("conn_fail")
 		return
@@ -45,10 +45,20 @@ func (c *Client) Connect() (err error) {
 	return
 }
 
+func (c *Client) Handshake() (err error) {
+	err = c.Client.Handshake()
+	if err != nil {
+		incStat("handshake_fail")
+		return
+	}
+	incStat("handshake_ok")
+	return
+}
+
 func (c *Client) Run() (err error) {
 	disconnected := make(chan error)
 	go func() {
-		err := c.pc.Run()
+		err := c.Client.Run()
 		if err != nil {
 			disconnected <- err
 		}
@@ -60,13 +70,13 @@ func (c *Client) Run() (err error) {
 		case err = <-disconnected:
 			incStat("conn_lost")
 			return
-		case reg := <-c.Register:
+		case reg := <-c.RegisterChan:
 			incStat("reg_ok")
 			e := NewEndpoint(reg)
 			endPoints[reg.ChannelID] = e
 			go func() {
 				e.run(c.config.delay)
-				c.SendReg()
+				c.Register()
 			}()
 		case notif := <-c.Notification:
 			for _, update := range notif.Updates {
@@ -82,9 +92,9 @@ func (c *Client) Run() (err error) {
 	}
 }
 
-func (c *Client) SendReg() {
+func (c *Client) Register() {
 	incStat("reg_try")
-	c.pc.Register()
+	c.Client.Register()
 }
 
 func (c *Client) NotificationHandler(resp *pushclient.Notification) {
@@ -92,5 +102,5 @@ func (c *Client) NotificationHandler(resp *pushclient.Notification) {
 }
 
 func (c *Client) RegisterHandler(resp *pushclient.RegisterResponse) {
-	c.Register <- resp
+	c.RegisterChan <- resp
 }

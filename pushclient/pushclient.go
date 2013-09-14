@@ -47,10 +47,6 @@ func NewClient(server string, port int, secure bool, handler PushHandler) (c *Cl
 
 	c = &Client{Ws: ws, Uaid: "", ChannelIDs: make([]string, 0)}
 	c.handler = handler
-	err = c.handshake()
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -103,7 +99,7 @@ func (c *Client) Receive() (resp Response, err error) {
 	return
 }
 
-func (c *Client) handshake() (err error) {
+func (c *Client) Handshake() (err error) {
 	msg := HandshakeMessage{MessageType: "hello", Uaid: c.Uaid, ChannelIDs: c.ChannelIDs}
 	err = c.Send(msg)
 	if err != nil {

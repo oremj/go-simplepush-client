@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -42,27 +43,38 @@ func main() {
 
 	go func() {
 		clients := make([]*Client, 0, *numClients)
-		connectionLimiter := make(chan bool, 300)
+		var wg sync.WaitGroup
 		for i := 0; i < *numClients; i++ {
-			connectionLimiter <- true
 			c := NewClient(*server, port, &Config{secure: *secure, delay: *delay})
 			clients = append(clients, c)
+			wg.Add(1)
 			go func(c *Client) {
+				defer wg.Done()
 				for {
 					err := c.Connect()
 					if err != nil {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					c.SendReg()
-
-					<-connectionLimiter
-
-					err = c.Run()
-					if err != nil {
-						time.Sleep(2 * time.Second)
-					}
+					return
 				}
+			}(c)
+		}
+		wg.Wait()
+
+		for _, c := range clients {
+			wg.Add(1)
+			go func(c *Client) {
+				defer wg.Done()
+				c.Handshake()
+			}(c)
+		}
+		wg.Wait()
+
+		for _, c := range clients {
+			go func(c *Client) {
+				c.Register()
+				c.Run()
 			}(c)
 		}
 	}()
