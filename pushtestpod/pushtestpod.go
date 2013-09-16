@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -64,7 +63,6 @@ func main() {
 					}
 
 					<-waitHandshake
-					log.Println("Handshaking")
 					err = c.Handshake()
 					if err != nil {
 						time.Sleep(2 * time.Second)
@@ -76,7 +74,6 @@ func main() {
 					}
 
 					<-waitRegister
-					log.Println("Registering")
 					c.Register()
 					c.Run()
 				}
