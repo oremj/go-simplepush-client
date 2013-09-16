@@ -7,7 +7,11 @@ import (
 	"strings"
 )
 
+var sendLimitChannel = make(chan bool, 40)
+
 func SendPing(endPoint string, version int) (err error) {
+	sendLimitChannel <- true
+	defer func() { <-sendLimitChannel }()
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
