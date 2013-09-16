@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 )
 
-var server = flag.String("server", "localhost", "Pushgo Server Name")
+var servers = flag.String("servers", "localhost", "Pushgo Servers comma separated.")
 var secure = flag.Bool("secure", false, "Use wss/https")
-var numClients = flag.Int("clients", 1, "Number of concurrent clients")
+var numClients = flag.Int("clients", 1, "Number of concurrent clients per server")
 var delay = flag.Int("delay", 10000, "Delay between PUTs in milliseconds.")
 var connectionLimit = flag.Int("connectlimit", 100, "Connection limiter.")
 
@@ -38,14 +39,16 @@ func main() {
 		}
 	}()
 
+	serverList := strings.Split(*servers, ",")
 	go func() {
+		totalClients := *numClients * len(serverList)
 		waitHandshake := make(chan bool)
 		waitRegister := make(chan bool)
 		connectChan := make(chan bool, *numClients)
 		handshakeChan := make(chan bool)
 		connectLimiter := make(chan bool, *connectionLimit)
-		for i := 0; i < *numClients; i++ {
-			c := NewClient(*server, port, &Config{secure: *secure, delay: *delay})
+		for i := 0; i < totalClients; i++ {
+			c := NewClient(serverList[i % len(serverList)], port, &Config{secure: *secure, delay: *delay})
 			connectLimiter <- true
 			go func(c *Client) {
 				firstConnect := true
@@ -80,12 +83,12 @@ func main() {
 			}(c)
 		}
 
-		for i := 0; i < *numClients; i++ {
+		for i := 0; i < totalClients; i++ {
 			<-connectChan
 		}
 		close(waitHandshake)
 
-		for i := 0; i < *numClients; i++ {
+		for i := 0; i < totalClients; i++ {
 			<-handshakeChan
 		}
 		close(waitRegister)
